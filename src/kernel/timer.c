@@ -4,12 +4,14 @@
 #include "serial.h"
 #include "scheduler.h"
 #include "dashboard.h"
+#include "keyboard.h"
 
 uint32_t tick = 0;
 
 static void timer_callback(registers_t* regs) {
     (void)regs;
     tick++;
+    keyboard_poll();      /* poll PS/2 buffer every tick — reliable input */
     dashboard_update();
     if (tick % 10 == 0) {
         if (get_current_thread() != 0) {
