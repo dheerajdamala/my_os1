@@ -44,7 +44,7 @@ $(ISO_TARGET): $(TARGET)
 
 # Run with display (interactive — keyboard works via PS/2)
 run: $(ISO_TARGET)
-	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -serial file:serial.log -display gtk
+	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -serial file:serial.log -display gtk,grab-on-hover=on
 
 # Headless run (for CI / serial log only)
 run-headless: $(ISO_TARGET)
