@@ -1,0 +1,68 @@
+#include "paging.h"
+#include "tty.h"
+
+/*
+ * SentinelOS — x86 Identity Paging (Milestone 2)
+ * ───────────────────────────────────────────────
+ * Sets up a minimal page directory that identity-maps the first 4 MB of
+ * physical memory (virtual address == physical address).  This keeps all
+ * existing kernel code, VGA buffer, and stack working transparently while
+ * enabling the MMU for future memory protection.
+ *
+ * Page directory / table format (32-bit non-PAE):
+ *   Bits 31-12 : physical base address of next level / page frame
+ *   Bit  2     : U/S  (0 = supervisor only)
+ *   Bit  1     : R/W  (1 = read+write)
+ *   Bit  0     : P    (1 = present)
+ */
+
+#define PAGE_PRESENT  (1 << 0)
+#define PAGE_RW       (1 << 1)
+#define PAGE_SIZE_4K  4096
+#define PAGES_PER_TAB 1024
+
+/* Statically allocated, 4 KB aligned structures.
+ * __attribute__((aligned(4096))) ensures the linker puts them on a page
+ * boundary so we can load their address directly into CR3.               */
+static uint32_t page_directory[1024] __attribute__((aligned(4096)));
+static uint32_t page_table_0[1024]   __attribute__((aligned(4096)));
+
+void paging_init(void) {
+    /* 1. Zero the page directory */
+    for (int i = 0; i < 1024; i++) page_directory[i] = 0;
+
+    /* 2. Fill the first page table: identity-map 4 MB (1024 pages × 4 KB) */
+    for (int i = 0; i < PAGES_PER_TAB; i++) {
+        page_table_0[i] = (i * PAGE_SIZE_4K) | PAGE_PRESENT | PAGE_RW;
+    }
+
+    /* 3. Install the page table into entry 0 of the page directory */
+    page_directory[0] = (uint32_t)page_table_0 | PAGE_PRESENT | PAGE_RW;
+
+    /* 4. Load CR3 with the physical address of the page directory */
+    asm volatile("mov %0, %%cr3" : : "r"((uint32_t)page_directory) : "memory");
+
+    /* 5. Enable paging — set bit 31 of CR0 */
+    uint32_t cr0;
+    asm volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 |= 0x80000000;
+    asm volatile("mov %0, %%cr0" : : "r"(cr0) : "memory");
+}
+
+void paging_fault_handler(registers_t* regs) {
+    /* Read CR2 — the faulting linear address */
+    uint32_t fault_addr;
+    asm volatile("mov %%cr2, %0" : "=r"(fault_addr));
+
+    tty_puts("\n  [!] PAGE FAULT  addr=");
+    tty_put_hex(fault_addr);
+    tty_puts("  err=");
+    tty_put_hex(regs->err_code);
+    tty_puts("\n      P="); tty_put_uint(regs->err_code & 1);
+    tty_puts(" W=");        tty_put_uint((regs->err_code >> 1) & 1);
+    tty_puts(" U=");        tty_put_uint((regs->err_code >> 2) & 1);
+    tty_puts("\n  Halting.\n");
+
+    asm volatile("cli; hlt");
+    while (1);
+}
