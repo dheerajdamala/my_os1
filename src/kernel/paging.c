@@ -25,21 +25,31 @@
  * __attribute__((aligned(4096))) ensures the linker puts them on a page
  * boundary so we can load their address directly into CR3.               */
 static uint32_t page_directory[1024] __attribute__((aligned(4096)));
-static uint32_t page_table_0[1024]   __attribute__((aligned(4096)));
+static uint32_t page_table_0[1024]   __attribute__((aligned(4096))); /* 0  -  4 MB */
+static uint32_t page_table_1[1024]   __attribute__((aligned(4096))); /* 4  -  8 MB */
+static uint32_t page_table_2[1024]   __attribute__((aligned(4096))); /* 8  - 12 MB */
+static uint32_t page_table_3[1024]   __attribute__((aligned(4096))); /* 12 - 16 MB */
 
 void paging_init(void) {
     /* 1. Zero the page directory */
     for (int i = 0; i < 1024; i++) page_directory[i] = 0;
 
-    /* 2. Fill the first page table: identity-map 4 MB (1024 pages × 4 KB) */
+    /* 2. Identity-map 0–16 MB across 4 page tables (4096 pages total) */
     for (int i = 0; i < PAGES_PER_TAB; i++) {
-        page_table_0[i] = (i * PAGE_SIZE_4K) | PAGE_PRESENT | PAGE_RW;
+        uint32_t flags = PAGE_PRESENT | PAGE_RW;
+        page_table_0[i] = ((0 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
+        page_table_1[i] = ((1 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
+        page_table_2[i] = ((2 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
+        page_table_3[i] = ((3 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
     }
 
-    /* 3. Install the page table into entry 0 of the page directory */
+    /* 3. Install all 4 page tables into the page directory */
     page_directory[0] = (uint32_t)page_table_0 | PAGE_PRESENT | PAGE_RW;
+    page_directory[1] = (uint32_t)page_table_1 | PAGE_PRESENT | PAGE_RW;
+    page_directory[2] = (uint32_t)page_table_2 | PAGE_PRESENT | PAGE_RW;
+    page_directory[3] = (uint32_t)page_table_3 | PAGE_PRESENT | PAGE_RW;
 
-    /* 4. Load CR3 with the physical address of the page directory */
+    /* 4. Load CR3 */
     asm volatile("mov %0, %%cr3" : : "r"((uint32_t)page_directory) : "memory");
 
     /* 5. Enable paging — set bit 31 of CR0 */
@@ -48,6 +58,7 @@ void paging_init(void) {
     cr0 |= 0x80000000;
     asm volatile("mov %0, %%cr0" : : "r"(cr0) : "memory");
 }
+
 
 void paging_fault_handler(registers_t* regs) {
     /* Read CR2 — the faulting linear address */

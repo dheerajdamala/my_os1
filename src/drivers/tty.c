@@ -70,14 +70,16 @@ void tty_clear(void) {
 
 void tty_init(void) {
     tty_clear();
-    /* Welcome banner */
-    tty_puts("  ╔══════════════════════════════════════════════╗\n");
-    tty_puts("  ║        Welcome to SentinelOS v0.1            ║\n");
-    tty_puts("  ║  Security-first microkernel  //  Ring 0      ║\n");
-    tty_puts("  ╚══════════════════════════════════════════════╝\n");
+    /* Welcome banner — uses CP437 box chars as hex escapes:
+     * \xC9=╔  \xBB=╗  \xC8=╚  \xBC=╝  \xCD=═  \xBA=║ */
+    tty_puts("  \xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB\n");
+    tty_puts("  \xBA        Welcome to SentinelOS v0.1            \xBA\n");
+    tty_puts("  \xBA  Security-first microkernel  //  Ring 0      \xBA\n");
+    tty_puts("  \xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC\n");
     tty_puts("\n");
     tty_puts("  Type 'help' for available commands.\n\n");
 }
+
 
 void tty_putchar(char c) {
     tty_erase_cursor();

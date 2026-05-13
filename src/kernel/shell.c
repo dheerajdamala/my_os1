@@ -41,7 +41,8 @@ static void input_redraw(void) {
 
 static void cmd_help(void) {
     tty_puts("\n  Available commands:\n");
-    tty_puts("  ─────────────────────────────────────────\n");
+    tty_puts("  ");
+    for(int i=0;i<41;i++) tty_putchar('\xC4'); tty_putchar('\n');
     tty_puts("  help     Show this help message\n");
     tty_puts("  clear    Clear the terminal\n");
     tty_puts("  mem      Memory usage details\n");
@@ -49,7 +50,9 @@ static void cmd_help(void) {
     tty_puts("  uptime   Show system uptime\n");
     tty_puts("  about    About SentinelOS\n");
     tty_puts("  reboot   Reboot the system\n");
-    tty_puts("  ─────────────────────────────────────────\n\n");
+    tty_puts("  ");
+    for(int i=0;i<41;i++) tty_putchar('\xC4'); tty_putchar('\n');
+    tty_putchar('\n');
 }
 
 static void cmd_clear(void) {
@@ -58,21 +61,21 @@ static void cmd_clear(void) {
 
 static void cmd_mem(void) {
     uint32_t used = kheap_used();
-    uint32_t total = 10 * 4096;  /* 10 pages heap */
+    uint32_t total = 10 * 4096;
     uint32_t pct = (used * 100) / total;
     tty_puts("\n  Memory Report\n");
-    tty_puts("  ─────────────────────────────────────────\n");
+    tty_puts("  "); for(int i=0;i<41;i++) tty_putchar('\xC4'); tty_putchar('\n');
     tty_puts("  Heap used  : "); tty_put_uint(used);  tty_puts(" bytes\n");
     tty_puts("  Heap total : "); tty_put_uint(total); tty_puts(" bytes\n");
     tty_puts("  Usage      : "); tty_put_uint(pct);   tty_puts("%\n");
     tty_puts("  Phys pages : 128 MB mapped\n");
-    tty_puts("  Paging     : Identity map (0x0 - 0x400000)\n\n");
+    tty_puts("  Paging     : Identity map (0x0 - 0x1000000)\n\n");
 }
 
 static void cmd_threads(void) {
     extern thread_t threads[];
     tty_puts("\n  Active Threads\n");
-    tty_puts("  ─────────────────────────────────────────\n");
+    tty_puts("  "); for(int i=0;i<41;i++) tty_putchar('\xC4'); tty_putchar('\n');
     tty_puts("  ID   STATE\n");
     int found = 0;
     for (int i = 0; i < MAX_THREADS; i++) {
@@ -115,17 +118,18 @@ static void cmd_uptime(void) {
 
 static void cmd_about(void) {
     tty_puts("\n");
-    tty_puts("  ┌─────────────────────────────────────────┐\n");
-    tty_puts("  │           S E N T I N E L  O S          │\n");
-    tty_puts("  │                                          │\n");
-    tty_puts("  │  Version  : 0.1.0                        │\n");
-    tty_puts("  │  Arch     : x86-32 Protected Mode        │\n");
-    tty_puts("  │  Kernel   : Microkernel (Ring 0)         │\n");
-    tty_puts("  │  Sched    : Preemptive Round-Robin        │\n");
-    tty_puts("  │  Memory   : Bitmap PMM + Bump Heap        │\n");
-    tty_puts("  │  Paging   : x86 Identity Map (4 MB)      │\n");
-    tty_puts("  │  IPC      : Async Mailbox                 │\n");
-    tty_puts("  └─────────────────────────────────────────┘\n\n");
+    /* CP437: \xDA=\u250C \xBF=\u2510 \xC0=\u2514 \xD9=\u2518 \xC4=\u2500 \xB3=\u2502 */
+    tty_puts("  \xDA"); for(int i=0;i<43;i++) tty_putchar('\xC4'); tty_puts("\xBF\n");
+    tty_puts("  \xB3         S E N T I N E L  O S          \xB3\n");
+    tty_puts("  \xB3                                          \xB3\n");
+    tty_puts("  \xB3  Version  : 0.1.0                        \xB3\n");
+    tty_puts("  \xB3  Arch     : x86-32 Protected Mode        \xB3\n");
+    tty_puts("  \xB3  Kernel   : Microkernel (Ring 0)         \xB3\n");
+    tty_puts("  \xB3  Sched    : Preemptive Round-Robin        \xB3\n");
+    tty_puts("  \xB3  Memory   : Bitmap PMM + Bump Heap        \xB3\n");
+    tty_puts("  \xB3  Paging   : x86 Identity Map (16 MB)     \xB3\n");
+    tty_puts("  \xB3  IPC      : Async Mailbox                 \xB3\n");
+    tty_puts("  \xC0"); for(int i=0;i<43;i++) tty_putchar('\xC4'); tty_puts("\xD9\n\n");
 }
 
 static void cmd_reboot(void) {
