@@ -9,6 +9,9 @@ void tty_puts(const char* s);
 void tty_put_uint(uint32_t v);
 void tty_put_hex(uint32_t v);
 void tty_clear(void);
+void tty_set_color(uint8_t fg, uint8_t bg);
+void tty_reset_color(void);
+
 
 /* Row/col bounds exported for shell input line */
 #define TTY_TOP_ROW    1

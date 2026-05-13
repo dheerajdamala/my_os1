@@ -6,6 +6,9 @@
 #include "memory.h"
 #include "ipc.h"
 #include "timer.h"
+#include "vfs.h"
+#include "fetch.h"
+#include "matrix.h"
 
 #define PROMPT      "sentinel> "
 #define PROMPT_LEN  10
@@ -40,18 +43,21 @@ static void input_redraw(void) {
 /* ── Built-in commands ───────────────────────────────────────────────────── */
 
 static void cmd_help(void) {
-    tty_puts("\n  Available commands:\n");
-    tty_puts("  ");
-    for(int i=0;i<41;i++) tty_putchar('\xC4'); tty_putchar('\n');
-    tty_puts("  help     Show this help message\n");
-    tty_puts("  clear    Clear the terminal\n");
-    tty_puts("  mem      Memory usage details\n");
-    tty_puts("  threads  List active kernel threads\n");
-    tty_puts("  uptime   Show system uptime\n");
-    tty_puts("  about    About SentinelOS\n");
-    tty_puts("  reboot   Reboot the system\n");
-    tty_puts("  ");
-    for(int i=0;i<41;i++) tty_putchar('\xC4'); tty_putchar('\n');
+    tty_puts("\n");
+    for(int i=0;i<41;i++) { tty_putchar('\xC4'); } tty_putchar('\n');
+    tty_puts("  help    : Show this help message\n");
+    tty_puts("  clear   : Clear the terminal\n");
+    tty_puts("  mem     : Show kernel heap usage\n");
+    tty_puts("  threads : Show active threads\n");
+    tty_puts("  uptime  : Show system uptime\n");
+    tty_puts("  about   : About SentinelOS\n");
+    tty_puts("  reboot  : Restart the system\n");
+    for(int i=0;i<41;i++) { tty_putchar('\xC4'); } tty_putchar('\n');
+    tty_puts("  ls      : List files in RamFS\n");
+    tty_puts("  cat     : Read file contents (e.g. cat readme.txt)\n");
+    tty_puts("  fetch   : Show aesthetic system info\n");
+    tty_puts("  matrix  : Digital rain screensaver\n");
+    for(int i=0;i<41;i++) { tty_putchar('\xC4'); } tty_putchar('\n');
     tty_putchar('\n');
 }
 
@@ -142,13 +148,6 @@ static void cmd_reboot(void) {
     while (1);
 }
 
-
-static void cmd_unknown(void) {
-    tty_puts("  Unknown command: '");
-    tty_puts(cmd_buf);
-    tty_puts("' — type 'help'\n\n");
-}
-
 /* ── Command dispatcher ──────────────────────────────────────────────────── */
 static void dispatch(void) {
     /* Null-terminate */
@@ -159,15 +158,54 @@ static void dispatch(void) {
     tty_puts(cmd_buf);
     tty_putchar('\n');
 
-    if (cmd_len == 0)           { /* empty — do nothing */ }
-    else if (str_eq(cmd_buf, "help"))    cmd_help();
-    else if (str_eq(cmd_buf, "clear"))   cmd_clear();
-    else if (str_eq(cmd_buf, "mem"))     cmd_mem();
-    else if (str_eq(cmd_buf, "threads")) cmd_threads();
-    else if (str_eq(cmd_buf, "uptime"))  cmd_uptime();
-    else if (str_eq(cmd_buf, "about"))   cmd_about();
-    else if (str_eq(cmd_buf, "reboot"))  cmd_reboot();
-    else                                 cmd_unknown();
+    if (cmd_len == 0)    {} else {
+        /* Not empty, check if it matches a built-in */
+        if (str_eq(cmd_buf, "help")) { cmd_help(); }
+        else if (str_eq(cmd_buf, "clear")) { tty_clear(); }
+        else if (str_eq(cmd_buf, "mem")) { cmd_mem(); }
+        else if (str_eq(cmd_buf, "threads")) { cmd_threads(); }
+        else if (str_eq(cmd_buf, "uptime")) { cmd_uptime(); }
+        else if (str_eq(cmd_buf, "about")) { cmd_about(); }
+        else if (str_eq(cmd_buf, "reboot")) { cmd_reboot(); }
+        else if (str_eq(cmd_buf, "fetch")) { cmd_fetch(); }
+        else if (str_eq(cmd_buf, "matrix")) { cmd_matrix(); }
+        else if (str_eq(cmd_buf, "ls")) {
+            tty_puts("\n");
+            int i = 0;
+            vfs_node_t* n = 0;
+            while ((n = vfs_readdir(fs_root, i++)) != 0) {
+                tty_puts("  "); tty_puts(n->name);
+                tty_puts("  ("); tty_put_uint(n->length); tty_puts(" bytes)\n");
+            }
+        }
+        else {
+            /* Try `cat filename` */
+            char* file_name = 0;
+            for (int i=0; cmd_buf[i]; i++) {
+                if (cmd_buf[i] == ' ' && cmd_buf[i+1] != 0) {
+                    cmd_buf[i] = 0;
+                    file_name = &cmd_buf[i+1];
+                    break;
+                }
+            }
+            if (str_eq(cmd_buf, "cat") && file_name) {
+                vfs_node_t* n = vfs_finddir(fs_root, file_name);
+                if (n) {
+                    tty_puts("\n");
+                    uint8_t buf[256];
+                    uint32_t sz = vfs_read(n, 0, 255, buf);
+                    buf[sz] = 0;
+                    tty_puts((char*)buf);
+                } else {
+                    tty_puts("\nError: File not found.\n");
+                }
+            } else {
+                tty_puts("\nUnknown command: '");
+                tty_puts(cmd_buf);
+                tty_puts("'\n");
+            }
+        }
+    }
 
     /* Reset buffer */
     cmd_len = 0;

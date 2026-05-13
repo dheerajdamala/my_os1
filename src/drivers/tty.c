@@ -14,8 +14,11 @@
 
 /* Shadow buffer: TTY_ROWS × TTY_COLS characters */
 static char shadow[TTY_ROWS][TTY_COLS];
+static uint8_t shadow_attr[TTY_ROWS][TTY_COLS];
 static int  tty_col = 0;    /* current cursor column (0-based, relative) */
 static int  tty_row = 0;    /* current cursor row    (0-based, relative) */
+static uint8_t current_style = STYLE_DEFAULT;
+
 
 /* ── Internal helpers ────────────────────────────────────────────────────── */
 
@@ -24,18 +27,23 @@ static void tty_flush_all(void) {
     for (int r = 0; r < TTY_ROWS; r++)
         for (int c = 0; c < TTY_COLS; c++)
             vga_putchar(TTY_LEFT_COL + c, TTY_TOP_ROW + r,
-                        shadow[r][c], STYLE_DEFAULT);
+                        shadow[r][c], shadow_attr[r][c]);
 }
 
 /* Scroll up by one line */
 static void tty_scroll(void) {
     /* Shift shadow rows up */
-    for (int r = 0; r < TTY_ROWS - 1; r++)
-        for (int c = 0; c < TTY_COLS; c++)
+    for (int r = 0; r < TTY_ROWS - 1; r++) {
+        for (int c = 0; c < TTY_COLS; c++) {
             shadow[r][c] = shadow[r + 1][c];
+            shadow_attr[r][c] = shadow_attr[r + 1][c];
+        }
+    }
     /* Clear last row */
-    for (int c = 0; c < TTY_COLS; c++)
+    for (int c = 0; c < TTY_COLS; c++) {
         shadow[TTY_ROWS - 1][c] = ' ';
+        shadow_attr[TTY_ROWS - 1][c] = current_style;
+    }
     tty_flush_all();
     tty_row = TTY_ROWS - 1;
 }
@@ -54,15 +62,26 @@ static void tty_erase_cursor(void) {
     int scr_x = TTY_LEFT_COL + tty_col;
     int scr_y = TTY_TOP_ROW  + tty_row;
     char ch = shadow[tty_row][tty_col];
-    vga_putchar(scr_x, scr_y, ch ? ch : ' ', STYLE_DEFAULT);
+    vga_putchar(scr_x, scr_y, ch ? ch : ' ', shadow_attr[tty_row][tty_col]);
+}
+
+void tty_set_color(uint8_t fg, uint8_t bg) {
+    current_style = VGA_ATTR(bg, fg);
+}
+
+void tty_reset_color(void) {
+    current_style = STYLE_DEFAULT;
 }
 
 /* ── Public API ──────────────────────────────────────────────────────────── */
 
 void tty_clear(void) {
-    for (int r = 0; r < TTY_ROWS; r++)
-        for (int c = 0; c < TTY_COLS; c++)
+    for (int r = 0; r < TTY_ROWS; r++) {
+        for (int c = 0; c < TTY_COLS; c++) {
             shadow[r][c] = ' ';
+            shadow_attr[r][c] = current_style;
+        }
+    }
     tty_flush_all();
     tty_col = 0;
     tty_row = 0;
@@ -101,7 +120,8 @@ void tty_putchar(char c) {
         if (next >= TTY_COLS) next = TTY_COLS - 1;
         for (int col = tty_col; col < next; col++) {
             shadow[tty_row][col] = ' ';
-            vga_putchar(TTY_LEFT_COL + col, TTY_TOP_ROW + tty_row, ' ', STYLE_DEFAULT);
+            shadow_attr[tty_row][col] = current_style;
+            vga_putchar(TTY_LEFT_COL + col, TTY_TOP_ROW + tty_row, ' ', current_style);
         }
         tty_col = next;
         tty_draw_cursor();
@@ -110,7 +130,8 @@ void tty_putchar(char c) {
 
     /* Normal printable character */
     shadow[tty_row][tty_col] = c;
-    vga_putchar(TTY_LEFT_COL + tty_col, TTY_TOP_ROW + tty_row, c, STYLE_DEFAULT);
+    shadow_attr[tty_row][tty_col] = current_style;
+    vga_putchar(TTY_LEFT_COL + tty_col, TTY_TOP_ROW + tty_row, c, current_style);
     tty_col++;
     if (tty_col >= TTY_COLS) {
         tty_col = 0;

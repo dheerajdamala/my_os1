@@ -14,6 +14,8 @@
 #include "keyboard.h"
 #include "shell.h"
 #include "paging.h"
+#include "vfs.h"
+#include "ramfs.h"
 
 /* ── Background worker thread (keeps IPC busy for the dashboard stats) ── */
 static void worker_thread(void) {
@@ -64,6 +66,10 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     splash_show();
 
     if (magic != 0x2BADB002) return;
+
+    /* Initialize VFS and RamFS */
+    vfs_init();
+    ramfs_init();
 
     /* 6. Kernel subsystems */
     ktf_init();
