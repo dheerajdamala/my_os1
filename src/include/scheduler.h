@@ -16,4 +16,6 @@ thread_t* thread_create(void (*entry_point)(void));
 void scheduler_yield(void);
 void schedule(void);
 thread_t* get_current_thread(void);
+int get_thread_count(void);
+uint32_t get_scheduler_switch_count(void);
 #endif

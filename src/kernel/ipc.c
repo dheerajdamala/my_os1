@@ -5,6 +5,9 @@
 
 extern thread_t threads[];
 ipc_mailbox_t mailboxes[MAX_THREADS];
+static uint32_t ipc_total_sent = 0;
+static uint32_t ipc_total_recv = 0;
+
 
 void ipc_init_mailbox(ipc_mailbox_t* mailbox) {
     mailbox->head = 0; mailbox->tail = 0; mailbox->count = 0;
@@ -30,6 +33,7 @@ int ipc_send(uint32_t receiver_id, ipc_message_t* msg) {
     mb->count++;
 
     ktf_log_event(KTF_EVENT_IPC_SEND, msg->sender_id, receiver_id, msg->message_type);
+    ipc_total_sent++;
 
     asm volatile("sti");
     return 0;
@@ -51,7 +55,13 @@ int ipc_receive(uint32_t receiver_id, ipc_message_t* msg) {
     mb->count--;
 
     ktf_log_event(KTF_EVENT_IPC_RECV, receiver_id, msg->sender_id, msg->message_type);
+    ipc_total_recv++;
 
     asm volatile("sti");
     return 0;
+}
+
+void ipc_get_stats(uint32_t* sent, uint32_t* recv) {
+    *sent = ipc_total_sent;
+    *recv = ipc_total_recv;
 }

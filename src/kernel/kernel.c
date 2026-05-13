@@ -7,6 +7,9 @@
 #include "scheduler.h"
 #include "ipc.h"
 #include "ktf.h"
+#include "vga.h"
+#include "splash.h"
+#include "dashboard.h"
 
 void thread1_main(void) {
     thread_t* self = get_current_thread();
@@ -42,6 +45,10 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     gdt_init();
     idt_init();
 
+    /* VGA must come before splash */
+    vga_init();
+    splash_show();
+
     if (magic != 0x2BADB002) return;
 
     ktf_init();
@@ -54,6 +61,9 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
 
     scheduler_init();
     ipc_init();
+
+    /* Draw the static dashboard chrome before threads start */
+    dashboard_init();
 
     thread_create(thread1_main);
     thread_create(thread2_main);

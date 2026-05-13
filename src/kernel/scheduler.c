@@ -6,6 +6,8 @@
 thread_t threads[MAX_THREADS];
 thread_t* current_thread = 0;
 uint32_t next_thread_id = 1;
+static uint32_t switch_count = 0;
+
 
 extern void switch_to_thread(thread_t* prev, thread_t* next);
 
@@ -60,6 +62,7 @@ void schedule(void) {
             current_thread->state = THREAD_RUNNING;
 
             ktf_log_event(KTF_EVENT_SCHEDULER_SWITCH, current_thread->id, prev->id, 0);
+            switch_count++;
             switch_to_thread(prev, current_thread);
         }
     }
@@ -67,3 +70,12 @@ void schedule(void) {
 
 void scheduler_yield(void) { schedule(); }
 thread_t* get_current_thread(void) { return current_thread; }
+
+int get_thread_count(void) {
+    int count = 0;
+    for (int i = 0; i < MAX_THREADS; i++)
+        if (threads[i].state != THREAD_FREE) count++;
+    return count;
+}
+
+uint32_t get_scheduler_switch_count(void) { return switch_count; }

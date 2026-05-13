@@ -3,12 +3,14 @@
 #include "io.h"
 #include "serial.h"
 #include "scheduler.h"
+#include "dashboard.h"
 
 uint32_t tick = 0;
 
 static void timer_callback(registers_t* regs) {
     (void)regs;
     tick++;
+    dashboard_update();
     if (tick % 10 == 0) {
         if (get_current_thread() != 0) {
             schedule();

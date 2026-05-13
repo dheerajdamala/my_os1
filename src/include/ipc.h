@@ -16,4 +16,5 @@ void ipc_init_mailbox(ipc_mailbox_t* mailbox);
 void ipc_init(void);
 int ipc_send(uint32_t receiver_id, ipc_message_t* msg);
 int ipc_receive(uint32_t receiver_id, ipc_message_t* msg);
+void ipc_get_stats(uint32_t* sent, uint32_t* recv);
 #endif

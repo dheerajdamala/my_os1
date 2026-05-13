@@ -9,4 +9,5 @@ void pmm_free_page(void* p);
 void kheap_init(void);
 void* kmalloc(size_t size);
 void kfree(void* p);
+uint32_t kheap_used(void);
 #endif

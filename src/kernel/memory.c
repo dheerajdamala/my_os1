@@ -57,3 +57,5 @@ void* kmalloc(size_t size) {
 }
 
 void kfree(void* p) { (void)p; }
+
+uint32_t kheap_used(void) { return heap_current - heap_start; }
