@@ -155,8 +155,23 @@ void dashboard_update(void) {
         last_ipc_recv = ipc_recv;
     }
 
-    /* ── Uptime (HH:MM:SS in stats row) ── */
-    if (uptime_s != last_uptime) { /* already updated above */ }
+    /* ── Uptime value in stats row (updated same time as clock) ── */
+    {
+        uint32_t hh = uptime_s / 3600;
+        uint32_t mm = (uptime_s % 3600) / 60;
+        uint32_t ss = uptime_s % 60;
+        /* Only redraw if second changed — compare against ticks directly */
+        static uint32_t last_uptime_stat = 0xFFFFFFFF;
+        if (uptime_s != last_uptime_stat) {
+            vga_fill_rect(70, STATS_ROW, 9, 1, ' ', STYLE_DEFAULT);
+            vga_put_uint_padded(70, STATS_ROW, hh, 2, STYLE_VALUE);
+            vga_putchar(72, STATS_ROW, ':', STYLE_LABEL);
+            vga_put_uint_padded(73, STATS_ROW, mm, 2, STYLE_VALUE);
+            vga_putchar(75, STATS_ROW, ':', STYLE_LABEL);
+            vga_put_uint_padded(76, STATS_ROW, ss, 2, STYLE_VALUE);
+            last_uptime_stat = uptime_s;
+        }
+    }
 
     /* ── Memory bar ── */
     if (mem_pct != last_mem_pct) {

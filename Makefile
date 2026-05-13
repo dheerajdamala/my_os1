@@ -42,12 +42,15 @@ $(TARGET): $(OBJS)
 $(ISO_TARGET): $(TARGET)
 	grub-mkrescue -o $(ISO_TARGET) iso
 
-# Run in QEMU
+# Run with display (interactive — keyboard works via PS/2)
 run: $(ISO_TARGET)
-	qemu-system-i386 -cdrom $(ISO_TARGET) -nographic -serial file:serial.log &
+	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -serial file:serial.log -display gtk
+
+# Headless run (for CI / serial log only)
+run-headless: $(ISO_TARGET)
+	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -nographic -serial stdio &
 	sleep 2
 	killall qemu-system-i386 || true
-	cat serial.log
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(ISO_TARGET)
