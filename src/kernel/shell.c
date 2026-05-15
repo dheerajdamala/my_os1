@@ -9,6 +9,8 @@
 #include "vfs.h"
 #include "fetch.h"
 #include "matrix.h"
+#include "elf.h"
+#include "gdt.h"
 
 #define PROMPT      "sentinel> "
 #define PROMPT_LEN  10
@@ -55,6 +57,7 @@ static void cmd_help(void) {
     for(int i=0;i<41;i++) { tty_putchar('\xC4'); } tty_putchar('\n');
     tty_puts("  ls      : List files in RamFS\n");
     tty_puts("  cat     : Read file contents (e.g. cat readme.txt)\n");
+    tty_puts("  exec    : Run an ELF binary (e.g. exec test.elf)\n");
     tty_puts("  fetch   : Show aesthetic system info\n");
     tty_puts("  matrix  : Digital rain screensaver\n");
     for(int i=0;i<41;i++) { tty_putchar('\xC4'); } tty_putchar('\n');
@@ -198,6 +201,19 @@ static void dispatch(void) {
                     tty_puts((char*)buf);
                 } else {
                     tty_puts("\nError: File not found.\n");
+                }
+            } else if (str_eq(cmd_buf, "exec") && file_name) {
+                uint32_t entry = elf_load_file(file_name);
+                if (entry) {
+                    tty_puts("\nELF Loaded. Transitioning to User Mode...\n");
+                    // We need to set the kernel stack top for this thread's TSS
+                    thread_t* self = get_current_thread();
+                    set_kernel_stack(self->stack_base + 4096);
+                    
+                    extern void enter_user_mode(void (*fn)(void));
+                    enter_user_mode((void (*)(void))entry);
+                } else {
+                    tty_puts("\nError: Failed to load ELF.\n");
                 }
             } else {
                 tty_puts("\nUnknown command: '");

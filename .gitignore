@@ -1,1 +1,6 @@
-*.o\n*.bin\n*.iso\nserial.log
+*.o
+*.bin
+*.iso
+*.elf
+serial.log
+src/include/test_program_elf.h

@@ -1,6 +1,11 @@
-# SentinelOS - MVP Implementation
+# SentinelOS 🛡️
 
-SentinelOS is a security-first microkernel operating system built from scratch. This repository contains the Minimum Viable Product (MVP) that runs in 32-bit Protected Mode on x86_64 architecture.
+SentinelOS is a security-first, aesthetically-driven x86 microkernel-inspired operating system.
+
+> [!IMPORTANT]
+> **Complete Technical Documentation**: For a deep-dive into the architecture, boot flow, and file-by-file analysis, please refer to the [SentinelOS Technical Manual](SentinelOS_Technical_Manual.md).
+
+This repository contains the Minimum Viable Product (MVP) that runs in 32-bit Protected Mode on x86_64 architecture.
 
 ## Features Implemented
 

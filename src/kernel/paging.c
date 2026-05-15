@@ -18,6 +18,7 @@
 
 #define PAGE_PRESENT  (1 << 0)
 #define PAGE_RW       (1 << 1)
+#define PAGE_USER     (1 << 2)
 #define PAGE_SIZE_4K  4096
 #define PAGES_PER_TAB 1024
 
@@ -36,7 +37,7 @@ void paging_init(void) {
 
     /* 2. Identity-map 0–16 MB across 4 page tables (4096 pages total) */
     for (int i = 0; i < PAGES_PER_TAB; i++) {
-        uint32_t flags = PAGE_PRESENT | PAGE_RW;
+        uint32_t flags = PAGE_PRESENT | PAGE_RW | PAGE_USER;
         page_table_0[i] = ((0 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
         page_table_1[i] = ((1 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
         page_table_2[i] = ((2 * PAGES_PER_TAB + i) * PAGE_SIZE_4K) | flags;
@@ -44,10 +45,11 @@ void paging_init(void) {
     }
 
     /* 3. Install all 4 page tables into the page directory */
-    page_directory[0] = (uint32_t)page_table_0 | PAGE_PRESENT | PAGE_RW;
-    page_directory[1] = (uint32_t)page_table_1 | PAGE_PRESENT | PAGE_RW;
-    page_directory[2] = (uint32_t)page_table_2 | PAGE_PRESENT | PAGE_RW;
-    page_directory[3] = (uint32_t)page_table_3 | PAGE_PRESENT | PAGE_RW;
+    uint32_t dir_flags = PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    page_directory[0] = (uint32_t)page_table_0 | dir_flags;
+    page_directory[1] = (uint32_t)page_table_1 | dir_flags;
+    page_directory[2] = (uint32_t)page_table_2 | dir_flags;
+    page_directory[3] = (uint32_t)page_table_3 | dir_flags;
 
     /* 4. Load CR3 */
     asm volatile("mov %0, %%cr3" : : "r"((uint32_t)page_directory) : "memory");

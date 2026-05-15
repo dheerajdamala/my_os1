@@ -1,4 +1,5 @@
 #include "ramfs.h"
+#include "test_program_elf.h"
 
 #define MAX_RAMFS_FILES 16
 
@@ -48,6 +49,21 @@ static vfs_node_t* ramfs_finddir(vfs_node_t* node, char* name) {
     return 0;
 }
 
+void ramfs_create_binary_file(const char* name, uint8_t* data, uint32_t size) {
+    if (num_files >= MAX_RAMFS_FILES) return;
+    
+    ramfs_file_t* f = &files[num_files++];
+    strcpy(f->node.name, name);
+    f->node.flags = FS_FILE;
+    f->node.length = size;
+    
+    f->node.read = ramfs_read;
+    f->node.finddir = 0;
+    f->node.readdir = 0;
+    f->data = data;
+    f->node.ptr = f;
+}
+
 static void create_file(const char* name, const char* content) {
     if (num_files >= MAX_RAMFS_FILES) return;
     
@@ -78,4 +94,5 @@ void ramfs_init(void) {
     create_file("readme.txt", "Welcome to SentinelOS!\nThis is a minimal in-memory file system (RamFS).\n");
     create_file("secrets.txt", "TOP SECRET: The cake is a lie.\n");
     create_file("config.sys", "OS=SentinelOS\nVERSION=0.1.0\nARCH=x86-32\nAESTHETICS=MAXIMUM\n");
+    ramfs_create_binary_file("test.elf", test_program_elf, test_program_elf_len);
 }

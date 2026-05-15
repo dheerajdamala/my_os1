@@ -16,6 +16,7 @@
 #include "paging.h"
 #include "vfs.h"
 #include "ramfs.h"
+#include "syscall.h"
 
 /* ── Background worker thread (keeps IPC busy for the dashboard stats) ── */
 static void worker_thread(void) {
@@ -44,12 +45,32 @@ static void receiver_thread(void) {
     }
 }
 
+/* ── User Mode Test Thread ────────────────────────────────────────────── */
+extern void enter_user_mode(void (*fn)(void));
+
+extern uint32_t elf_load_file(const char* path);
+
+static void user_thread_entry(void) {
+    thread_t* self = get_current_thread();
+    set_kernel_stack(self->stack_base + 4096);
+
+    serial_printf("[KERNEL] Attempting to load test.elf...\n");
+    uint32_t entry = elf_load_file("test.elf");
+    if (entry) {
+        serial_printf("[KERNEL] ELF Loaded at 0x%x. Transitioning to User Mode...\n", entry);
+        enter_user_mode((void (*)(void))entry);
+    } else {
+        serial_printf("[KERNEL] Failed to load ELF!\n");
+    }
+}
+
 /* ── Kernel entry point ───────────────────────────────────────────────── */
 void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     (void)multiboot_info;
 
     /* 1. Serial first (debugging before VGA is up) */
     serial_init();
+    serial_printf("SENTINEL OS BOOTING...\n");
 
     /* 2. GDT must precede paging and IDT */
     gdt_init();
@@ -83,9 +104,10 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     /* 8. Keyboard (must be after sti so IRQ1 can fire) */
     keyboard_init();
 
-    /* 9. Scheduler + IPC */
+    /* 9. Scheduler + IPC + Syscalls */
     scheduler_init();
     ipc_init();
+    syscall_init();
 
     /* 10. Draw static dashboard chrome */
     dashboard_init();
@@ -96,10 +118,12 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     /* 12. Spawn threads:
      *   Thread 1 = receiver  (provides IPC target for worker)
      *   Thread 2 = worker    (sends IPC messages, keeps stats live)
-     *   Thread 3 = shell     (interactive command interpreter)    */
+     *   Thread 3 = shell     (interactive command interpreter)
+     *   Thread 4 = user mode test thread */
     thread_create(receiver_thread);
     thread_create(worker_thread);
     thread_create(shell_thread);
+    thread_create(user_thread_entry);
 
     /* 13. Hand off to the scheduler */
     schedule();
