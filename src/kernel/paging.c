@@ -1,35 +1,20 @@
 #include "paging.h"
 #include "tty.h"
+#include "memory.h"
+#include "serial.h"
 
-/*
- * SentinelOS — x86 Identity Paging (Milestone 2)
- * ───────────────────────────────────────────────
- * Sets up a minimal page directory that identity-maps the first 4 MB of
- * physical memory (virtual address == physical address).  This keeps all
- * existing kernel code, VGA buffer, and stack working transparently while
- * enabling the MMU for future memory protection.
- *
- * Page directory / table format (32-bit non-PAE):
- *   Bits 31-12 : physical base address of next level / page frame
- *   Bit  2     : U/S  (0 = supervisor only)
- *   Bit  1     : R/W  (1 = read+write)
- *   Bit  0     : P    (1 = present)
- */
-
-#define PAGE_PRESENT  (1 << 0)
-#define PAGE_RW       (1 << 1)
-#define PAGE_USER     (1 << 2)
 #define PAGE_SIZE_4K  4096
 #define PAGES_PER_TAB 1024
 
-/* Statically allocated, 4 KB aligned structures.
- * __attribute__((aligned(4096))) ensures the linker puts them on a page
- * boundary so we can load their address directly into CR3.               */
+/* Statically allocated, 4 KB aligned structures. */
 static uint32_t page_directory[1024] __attribute__((aligned(4096)));
 static uint32_t page_table_0[1024]   __attribute__((aligned(4096))); /* 0  -  4 MB */
 static uint32_t page_table_1[1024]   __attribute__((aligned(4096))); /* 4  -  8 MB */
 static uint32_t page_table_2[1024]   __attribute__((aligned(4096))); /* 8  - 12 MB */
 static uint32_t page_table_3[1024]   __attribute__((aligned(4096))); /* 12 - 16 MB */
+
+extern uint32_t user_brk_start;
+extern uint32_t user_brk_current;
 
 void paging_init(void) {
     /* 1. Zero the page directory */
@@ -61,11 +46,49 @@ void paging_init(void) {
     asm volatile("mov %0, %%cr0" : : "r"(cr0) : "memory");
 }
 
+void page_map(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags) {
+    uint32_t pd_idx = virtual_addr >> 22;
+    uint32_t pt_idx = (virtual_addr >> 12) & 0x3FF;
+
+    if (!(page_directory[pd_idx] & PAGE_PRESENT)) {
+        void* new_pt_phys = pmm_alloc_page();
+        if (!new_pt_phys) {
+            serial_printf("[PAGING] Out of memory allocating page table!\n");
+            return;
+        }
+
+        uint32_t* new_pt = (uint32_t*)new_pt_phys;
+        for (int i = 0; i < 1024; i++) {
+            new_pt[i] = 0;
+        }
+
+        page_directory[pd_idx] = (uint32_t)new_pt_phys | PAGE_PRESENT | PAGE_RW | PAGE_USER;
+    }
+
+    uint32_t* page_table = (uint32_t*)(page_directory[pd_idx] & ~0xFFF);
+    page_table[pt_idx] = (physical_addr & ~0xFFF) | flags;
+
+    asm volatile("invlpg (%0)" : : "r"(virtual_addr) : "memory");
+}
 
 void paging_fault_handler(registers_t* regs) {
     /* Read CR2 — the faulting linear address */
     uint32_t fault_addr;
     asm volatile("mov %%cr2, %0" : "=r"(fault_addr));
+
+    /* Check if it falls within the valid user-space heap range */
+    if (user_brk_start != 0 && fault_addr >= user_brk_start && fault_addr < user_brk_current) {
+        void* page_phys = pmm_alloc_page();
+        if (!page_phys) {
+            serial_printf("[PAGING] Out of physical memory for demand mapping!\n");
+            asm volatile("cli; hlt");
+        }
+        
+        page_map(fault_addr, (uint32_t)page_phys, PAGE_PRESENT | PAGE_RW | PAGE_USER);
+        serial_printf("[PAGING] Demand mapped virtual page 0x%x to physical page 0x%x\n", 
+                      fault_addr & ~0xFFF, (uint32_t)page_phys);
+        return; // Resume instruction execution
+    }
 
     tty_puts("\n  [!] PAGE FAULT  addr=");
     tty_put_hex(fault_addr);

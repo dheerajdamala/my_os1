@@ -82,6 +82,20 @@ static void create_file(const char* name, const char* content) {
     f->node.ptr = f;
 }
 
+void ramfs_create_mountpoint(const char* name, vfs_node_t* mount_root) {
+    if (num_files >= MAX_RAMFS_FILES || !mount_root) return;
+    
+    ramfs_file_t* f = &files[num_files++];
+    strcpy(f->node.name, name);
+    f->node.flags = FS_DIRECTORY;
+    f->node.length = 0;
+    
+    f->node.read = 0;
+    f->node.finddir = mount_root->finddir;
+    f->node.readdir = mount_root->readdir;
+    f->node.ptr = mount_root->ptr;
+}
+
 void ramfs_init(void) {
     strcpy(ramfs_root.name, "root");
     ramfs_root.flags = FS_DIRECTORY;

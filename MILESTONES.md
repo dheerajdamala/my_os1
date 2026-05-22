@@ -13,11 +13,11 @@ Currently, threads are just C functions compiled directly into the kernel. A rea
 * **ELF Parser:** Write a parser to read the standard Linux **Executable and Linkable Format (ELF)** binaries.
 * **Process Creation:** When a user types a command, read the ELF file from RamFS, allocate user-mode memory pages for its code and data, map it into a virtual address space, and execute it in Ring 3.
 
-## 💾 Milestone 6: Persistent Storage (ATA/IDE Driver) & FAT32
+## 💾 Milestone 6: Persistent Storage (ATA/IDE Driver) & FAT32 [COMPLETED]
 RamFS is great, but files disappear when the computer turns off. We need to interact with actual hard drives.
-* **ATA/IDE PIO Driver:** Write a driver to communicate with standard IDE hard drives to read and write sectors from the disk.
-* **Disk Image & GRUB:** Attach a virtual hard disk to QEMU in the `Makefile`.
-* **FAT32 / Ext2 Support:** Implement a real file system driver (FAT32 is the easiest start) under the VFS layer, allowing the OS to read actual files and directories off a persistent disk.
+* **ATA/IDE PIO Driver:** Write a driver to communicate with standard IDE hard drives to read and write sectors from the disk. (Implemented sector-level LBA28 PIO reading and writing)
+* **Disk Image & GRUB:** Attach a virtual hard disk to QEMU in the `Makefile`. (Created `disk.img` formatted as FAT32, mounted under `/disk` via CD-ROM `-boot d` order)
+* **FAT32 / Ext2 Support:** Implement a real file system driver (FAT32 is the easiest start) under the VFS layer, allowing the OS to read actual files and directories off a persistent disk. (Implemented full BPB parsing, directory listing, and file chunk reading)
 
 ## 🧠 Milestone 7: Advanced Memory Management
 The current kernel heap (`kmalloc`) is a simple bump-allocator, meaning we can't free memory once it's allocated.

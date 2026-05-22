@@ -17,6 +17,8 @@
 #include "vfs.h"
 #include "ramfs.h"
 #include "syscall.h"
+#include "ata.h"
+#include "fat32.h"
 
 /* ── Background worker thread (keeps IPC busy for the dashboard stats) ── */
 static void worker_thread(void) {
@@ -54,8 +56,8 @@ static void user_thread_entry(void) {
     thread_t* self = get_current_thread();
     set_kernel_stack(self->stack_base + 4096);
 
-    serial_printf("[KERNEL] Attempting to load test.elf...\n");
-    uint32_t entry = elf_load_file("test.elf");
+    serial_printf("[KERNEL] Attempting to load disk/test.elf...\n");
+    uint32_t entry = elf_load_file("disk/test.elf");
     if (entry) {
         serial_printf("[KERNEL] ELF Loaded at 0x%x. Transitioning to User Mode...\n", entry);
         enter_user_mode((void (*)(void))entry);
@@ -92,11 +94,28 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     vfs_init();
     ramfs_init();
 
+    /* Initialize ATA and FAT32 */
+    ata_init();
+    fat32_init();
+    vfs_node_t* fat_root = fat32_get_root_node();
+    if (fat_root) {
+        ramfs_create_mountpoint("disk", fat_root);
+    }
+
     /* 6. Kernel subsystems */
     ktf_init();
     timer_init(100);
     pmm_init(128 * 1024 * 1024);
     kheap_init();
+
+    /* Verify dynamic kernel heap allocator */
+    serial_printf("[KERNEL] Heap used initially: %d bytes\n", kheap_used());
+    void* k1 = kmalloc(100);
+    void* k2 = kmalloc(200);
+    serial_printf("[KERNEL] Allocated 100 bytes at 0x%x and 200 bytes at 0x%x. Heap used: %d bytes\n", k1, k2, kheap_used());
+    kfree(k1);
+    kfree(k2);
+    serial_printf("[KERNEL] Freed allocations. Heap used: %d bytes\n", kheap_used());
 
     /* 7. Enable interrupts */
     asm volatile("sti");

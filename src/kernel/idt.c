@@ -106,7 +106,7 @@ void idt_init(void) {
     idt_set_gate(40, (uint32_t)irq8, 0x08, 0x8E); idt_set_gate(41, (uint32_t)irq9, 0x08, 0x8E);
     idt_set_gate(42, (uint32_t)irq10, 0x08, 0x8E); idt_set_gate(43, (uint32_t)irq11, 0x08, 0x8E);
     idt_set_gate(44, (uint32_t)irq12, 0x08, 0x8E); idt_set_gate(45, (uint32_t)irq13, 0x08, 0x8E);
-    idt_set_gate(47, (uint32_t)irq15, 0x08, 0x8E);
+    idt_set_gate(46, (uint32_t)irq14, 0x08, 0x8E); idt_set_gate(47, (uint32_t)irq15, 0x08, 0x8E);
 
     // Syscall handler (0x80 = 128)
     extern void isr128(void);

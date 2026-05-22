@@ -43,14 +43,28 @@ $(ISO_TARGET): $(TARGET)
 	grub-mkrescue -o $(ISO_TARGET) iso
 
 # Run with display (interactive — keyboard works via PS/2)
-run: $(ISO_TARGET)
-	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -serial file:serial.log -display gtk,grab-on-hover=on
+run: $(ISO_TARGET) disk.img
+	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -hda disk.img -serial file:serial.log -display gtk,grab-on-hover=on
 
 # Headless run (for CI / serial log only)
-run-headless: $(ISO_TARGET)
-	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -nographic -serial stdio &
+run-headless: $(ISO_TARGET) disk.img
+	qemu-system-i386 -machine pc -cdrom $(ISO_TARGET) -hda disk.img -serial file:serial.log -display none &
 	sleep 2
 	killall qemu-system-i386 || true
 
+disk.img: test_program.elf
+	dd if=/dev/zero of=disk.img bs=1M count=36
+	mkfs.vfat -F 32 disk.img
+	echo "Hello from the persistent FAT32 storage!" > test.txt
+	mcopy -i disk.img test.txt ::test.txt
+	mmd -i disk.img ::docs
+	echo "Inside docs directory on disk." > doc1.txt
+	mcopy -i disk.img doc1.txt ::docs/doc1.txt
+	mcopy -i disk.img test_program.elf ::test.elf
+	rm -f test.txt doc1.txt
+
+test_program.elf: test_program.c user_linker.ld
+	$(CC) -m32 -static -ffreestanding -O2 -nostdlib -T user_linker.ld -o test_program.elf test_program.c
+
 clean:
-	rm -f $(OBJS) $(TARGET) $(ISO_TARGET)
+	rm -f $(OBJS) $(TARGET) $(ISO_TARGET) disk.img test_program.elf

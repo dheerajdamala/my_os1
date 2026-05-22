@@ -4,3 +4,4 @@
 *.elf
 serial.log
 src/include/test_program_elf.h
+disk.img

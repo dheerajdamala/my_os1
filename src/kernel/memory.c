@@ -39,23 +39,118 @@ void pmm_free_page(void* p) {
     if (bitmap_test(bit)) { bitmap_clear(bit); used_blocks--; }
 }
 
-uint32_t heap_start;
-uint32_t heap_current;
+typedef struct block_header {
+    size_t size;
+    int is_free;
+    struct block_header* next;
+} block_header_t;
+
+#define HEADER_SIZE sizeof(block_header_t)
+
+static block_header_t* heap_first = 0;
+uint32_t heap_start = 0;
 
 void kheap_init(void) {
     void* p = pmm_alloc_page();
-    for (int i=1; i<10; i++) pmm_alloc_page();
+    for (int i = 1; i < 10; i++) {
+        pmm_alloc_page();
+    }
+    
     heap_start = (uint32_t)p;
-    heap_current = heap_start;
+    heap_first = (block_header_t*)p;
+    heap_first->size = (10 * PAGE_SIZE) - HEADER_SIZE;
+    heap_first->is_free = 1;
+    heap_first->next = 0;
 }
 
 void* kmalloc(size_t size) {
-    if (size % 4 != 0) size += 4 - (size % 4);
-    uint32_t addr = heap_current;
-    heap_current += size;
-    return (void*)addr;
+    if (size == 0) return 0;
+    
+    // Align to 4 bytes
+    if (size % 4 != 0) {
+        size += 4 - (size % 4);
+    }
+    
+    block_header_t* curr = heap_first;
+    while (curr) {
+        if (curr->is_free && curr->size >= size) {
+            // Split block if large enough
+            if (curr->size >= size + HEADER_SIZE + 4) {
+                block_header_t* new_block = (block_header_t*)((uint32_t)curr + HEADER_SIZE + size);
+                new_block->size = curr->size - size - HEADER_SIZE;
+                new_block->is_free = 1;
+                new_block->next = curr->next;
+                
+                curr->size = size;
+                curr->next = new_block;
+            }
+            
+            curr->is_free = 0;
+            return (void*)((uint32_t)curr + HEADER_SIZE);
+        }
+        curr = curr->next;
+    }
+    
+    // Grow heap by 1 page
+    void* new_page = pmm_alloc_page();
+    if (!new_page) {
+        serial_printf("[KERNEL HEAP] Out of memory!\n");
+        return 0;
+    }
+    
+    block_header_t* last = heap_first;
+    while (last && last->next) {
+        last = last->next;
+    }
+    
+    uint32_t last_end = (uint32_t)last + HEADER_SIZE + last->size;
+    if (last && last->is_free && last_end == (uint32_t)new_page) {
+        last->size += PAGE_SIZE;
+        return kmalloc(size);
+    } else {
+        block_header_t* new_block = (block_header_t*)new_page;
+        new_block->size = PAGE_SIZE - HEADER_SIZE;
+        new_block->is_free = 1;
+        new_block->next = 0;
+        
+        if (last) {
+            last->next = new_block;
+        } else {
+            heap_first = new_block;
+        }
+        return kmalloc(size);
+    }
 }
 
-void kfree(void* p) { (void)p; }
+void kfree(void* p) {
+    if (!p) return;
+    
+    block_header_t* header = (block_header_t*)((uint32_t)p - HEADER_SIZE);
+    header->is_free = 1;
+    
+    // Coalesce adjacent free blocks
+    block_header_t* curr = heap_first;
+    while (curr) {
+        if (curr->is_free && curr->next && curr->next->is_free) {
+            uint32_t curr_end = (uint32_t)curr + HEADER_SIZE + curr->size;
+            if (curr_end == (uint32_t)curr->next) {
+                curr->size += HEADER_SIZE + curr->next->size;
+                curr->next = curr->next->next;
+                continue;
+            }
+        }
+        curr = curr->next;
+    }
+}
 
-uint32_t kheap_used(void) { return heap_current - heap_start; }
+uint32_t kheap_used(void) {
+    uint32_t used = 0;
+    block_header_t* curr = heap_first;
+    while (curr) {
+        if (!curr->is_free) {
+            used += curr->size + HEADER_SIZE;
+        }
+        curr = curr->next;
+    }
+    return used;
+}

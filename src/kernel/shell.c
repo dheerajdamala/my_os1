@@ -161,66 +161,107 @@ static void dispatch(void) {
     tty_puts(cmd_buf);
     tty_putchar('\n');
 
-    if (cmd_len == 0)    {} else {
-        /* Not empty, check if it matches a built-in */
-        if (str_eq(cmd_buf, "help")) { cmd_help(); }
-        else if (str_eq(cmd_buf, "clear")) { tty_clear(); }
-        else if (str_eq(cmd_buf, "mem")) { cmd_mem(); }
-        else if (str_eq(cmd_buf, "threads")) { cmd_threads(); }
-        else if (str_eq(cmd_buf, "uptime")) { cmd_uptime(); }
-        else if (str_eq(cmd_buf, "about")) { cmd_about(); }
-        else if (str_eq(cmd_buf, "reboot")) { cmd_reboot(); }
-        else if (str_eq(cmd_buf, "fetch")) { cmd_fetch(); }
-        else if (str_eq(cmd_buf, "matrix")) { cmd_matrix(); }
-        else if (str_eq(cmd_buf, "ls")) {
-            tty_puts("\n");
-            int i = 0;
-            vfs_node_t* n = 0;
-            while ((n = vfs_readdir(fs_root, i++)) != 0) {
-                tty_puts("  "); tty_puts(n->name);
-                tty_puts("  ("); tty_put_uint(n->length); tty_puts(" bytes)\n");
-            }
+    if (cmd_len == 0) {
+        cmd_len = 0;
+        return;
+    }
+
+    /* Parse command name and argument */
+    char* cmd = cmd_buf;
+    char* arg = 0;
+    for (int i = 0; cmd_buf[i]; i++) {
+        if (cmd_buf[i] == ' ') {
+            cmd_buf[i] = '\0';
+            arg = &cmd_buf[i + 1];
+            while (*arg == ' ') arg++;
+            if (*arg == '\0') arg = 0;
+            break;
         }
-        else {
-            /* Try `cat filename` */
-            char* file_name = 0;
-            for (int i=0; cmd_buf[i]; i++) {
-                if (cmd_buf[i] == ' ' && cmd_buf[i+1] != 0) {
-                    cmd_buf[i] = 0;
-                    file_name = &cmd_buf[i+1];
-                    break;
-                }
-            }
-            if (str_eq(cmd_buf, "cat") && file_name) {
-                vfs_node_t* n = vfs_finddir(fs_root, file_name);
-                if (n) {
-                    tty_puts("\n");
-                    uint8_t buf[256];
-                    uint32_t sz = vfs_read(n, 0, 255, buf);
-                    buf[sz] = 0;
-                    tty_puts((char*)buf);
-                } else {
-                    tty_puts("\nError: File not found.\n");
-                }
-            } else if (str_eq(cmd_buf, "exec") && file_name) {
-                uint32_t entry = elf_load_file(file_name);
-                if (entry) {
-                    tty_puts("\nELF Loaded. Transitioning to User Mode...\n");
-                    // We need to set the kernel stack top for this thread's TSS
-                    thread_t* self = get_current_thread();
-                    set_kernel_stack(self->stack_base + 4096);
-                    
-                    extern void enter_user_mode(void (*fn)(void));
-                    enter_user_mode((void (*)(void))entry);
-                } else {
-                    tty_puts("\nError: Failed to load ELF.\n");
+    }
+
+    if (str_eq(cmd, "help")) { cmd_help(); }
+    else if (str_eq(cmd, "clear")) { cmd_clear(); }
+    else if (str_eq(cmd, "mem")) { cmd_mem(); }
+    else if (str_eq(cmd, "threads")) { cmd_threads(); }
+    else if (str_eq(cmd, "uptime")) { cmd_uptime(); }
+    else if (str_eq(cmd, "about")) { cmd_about(); }
+    else if (str_eq(cmd, "reboot")) { cmd_reboot(); }
+    else if (str_eq(cmd, "fetch")) { cmd_fetch(); }
+    else if (str_eq(cmd, "matrix")) { cmd_matrix(); }
+    else if (str_eq(cmd, "ls")) {
+        vfs_node_t* dir = fs_root;
+        if (arg) {
+            dir = vfs_finddir(fs_root, arg);
+        }
+        
+        if (dir) {
+            if (dir->flags & FS_DIRECTORY) {
+                tty_puts("\n");
+                int i = 0;
+                vfs_node_t* n = 0;
+                while ((n = vfs_readdir(dir, i++)) != 0) {
+                    tty_puts("  ");
+                    tty_puts(n->name);
+                    if (n->flags & FS_DIRECTORY) {
+                        tty_puts("/");
+                    }
+                    tty_puts("  (");
+                    tty_put_uint(n->length);
+                    tty_puts(" bytes)\n");
                 }
             } else {
-                tty_puts("\nUnknown command: '");
-                tty_puts(cmd_buf);
-                tty_puts("'\n");
+                tty_puts("\nError: Path is a file, not a directory.\n");
+            }
+        } else {
+            tty_puts("\nError: Directory not found.\n");
+        }
+    }
+    else if (str_eq(cmd, "cat")) {
+        if (!arg) {
+            tty_puts("\nUsage: cat <filename>\n");
+        } else {
+            vfs_node_t* n = vfs_finddir(fs_root, arg);
+            if (n) {
+                if (n->flags & FS_FILE) {
+                    tty_puts("\n");
+                    uint8_t buf[256];
+                    uint32_t offset = 0;
+                    uint32_t sz;
+                    while ((sz = vfs_read(n, offset, 255, buf)) > 0) {
+                        buf[sz] = 0;
+                        tty_puts((char*)buf);
+                        offset += sz;
+                    }
+                    tty_puts("\n");
+                } else {
+                    tty_puts("\nError: Path is a directory, not a file.\n");
+                }
+            } else {
+                tty_puts("\nError: File not found.\n");
             }
         }
+    }
+    else if (str_eq(cmd, "exec")) {
+        if (!arg) {
+            tty_puts("\nUsage: exec <elf_file>\n");
+        } else {
+            uint32_t entry = elf_load_file(arg);
+            if (entry) {
+                tty_puts("\nELF Loaded. Transitioning to User Mode...\n");
+                thread_t* self = get_current_thread();
+                set_kernel_stack(self->stack_base + 4096);
+                
+                extern void enter_user_mode(void (*fn)(void));
+                enter_user_mode((void (*)(void))entry);
+            } else {
+                tty_puts("\nError: Failed to load ELF.\n");
+            }
+        }
+    }
+    else {
+        tty_puts("\nUnknown command: '");
+        tty_puts(cmd);
+        tty_puts("'\n");
     }
 
     /* Reset buffer */
