@@ -52,13 +52,13 @@ uint32_t heap_start = 0;
 
 void kheap_init(void) {
     void* p = pmm_alloc_page();
-    for (int i = 1; i < 10; i++) {
+    for (int i = 1; i < 1500; i++) {
         pmm_alloc_page();
     }
     
     heap_start = (uint32_t)p;
     heap_first = (block_header_t*)p;
-    heap_first->size = (10 * PAGE_SIZE) - HEADER_SIZE;
+    heap_first->size = (1500 * PAGE_SIZE) - HEADER_SIZE;
     heap_first->is_free = 1;
     heap_first->next = 0;
 }

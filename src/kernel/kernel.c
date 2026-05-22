@@ -19,6 +19,9 @@
 #include "syscall.h"
 #include "ata.h"
 #include "fat32.h"
+#include "vbe.h"
+#include "mouse.h"
+#include "compositor.h"
 
 /* ── Background worker thread (keeps IPC busy for the dashboard stats) ── */
 static void worker_thread(void) {
@@ -67,8 +70,12 @@ static void user_thread_entry(void) {
 }
 
 /* ── Kernel entry point ───────────────────────────────────────────────── */
+void compositor_thread_entry(void) {
+    compositor_init();
+    compositor_loop();
+}
+
 void kernel_main(uint32_t magic, uint32_t multiboot_info) {
-    (void)multiboot_info;
 
     /* 1. Serial first (debugging before VGA is up) */
     serial_init();
@@ -107,6 +114,7 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     timer_init(100);
     pmm_init(128 * 1024 * 1024);
     kheap_init();
+    vbe_init((multiboot_info_t*)multiboot_info);
 
     /* Verify dynamic kernel heap allocator */
     serial_printf("[KERNEL] Heap used initially: %d bytes\n", kheap_used());
@@ -122,6 +130,7 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
 
     /* 8. Keyboard (must be after sti so IRQ1 can fire) */
     keyboard_init();
+    mouse_init();
 
     /* 9. Scheduler + IPC + Syscalls */
     scheduler_init();
@@ -143,6 +152,7 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info) {
     thread_create(worker_thread);
     thread_create(shell_thread);
     thread_create(user_thread_entry);
+    thread_create(compositor_thread_entry);
 
     /* 13. Hand off to the scheduler */
     schedule();

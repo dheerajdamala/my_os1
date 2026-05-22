@@ -46,6 +46,12 @@
 #define STYLE_SPLASH_BG VGA_ATTR(VGA_COLOR_BLACK,        VGA_COLOR_BLACK)
 #define STYLE_HEADER    VGA_ATTR(VGA_COLOR_YELLOW,        VGA_COLOR_BLACK)
 
+extern char vga_char_buf[25][80];
+extern uint8_t vga_attr_buf[25][80];
+extern int compositor_active;
+uint32_t vga_to_rgb(uint8_t color_index);
+void draw_box_lines(uint8_t ch, uint32_t px, uint32_t py, uint32_t fg, uint32_t bg);
+
 /* Core API */
 void vga_init(void);
 void vga_clear(uint8_t attr);
